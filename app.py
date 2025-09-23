@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 import requests
 import psycopg2
+from llm import get_ai_service
 
 load_dotenv()
 
@@ -151,54 +152,25 @@ def generate_comment():
     comment_to_reply_to = (data.get("comment_to_reply_to") or "").strip()
     user_commenting_tone = (data.get("commenting_tone") or "").strip()
 
-    system_parts = [
-        "You are an expert facebook page manager in charge of user interaction and engagement, your goal is to keep",
-        "user engaged and active by reply to their comments in a way that keeps the conversation going, your target to",
-        "spark debate and discussion. and you don't always have to agree with the user, you can disagree and argue with them",
-        "in a meaningful and respectful way. The the info improved to get the context of the post and the user's comment. The reply should be in the same language as the user's comment.",
-        "Note: long comments should be replied in a longer way and short comments should be replied in a shorter way."
-        "Throw in some emojis when needed, don't ambuse this"
-    ]
+    # Combine user-provided tone with stored tone
     tone = user_commenting_tone or (row["commenting_tone"] or "")
-    if tone:
-        system_parts.append("Always consider this user commenting preference:")
-        system_parts.append(tone)
-    system_prompt = "\n".join(system_parts)
-
-    user_prompt = f"""post_description:{post_description}, 
-comment_to_reply_to: {comment_to_reply_to}""".strip()
-
-    if not XAI_API_KEY:
-        return jsonify({"reply": "Interesting take. What specific evidence leads you there?", "mock": True})
-
-    payload = {
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user",   "content": user_prompt}
-        ],
-        "model": "grok-4-latest",
-        "stream": False,
-        "temperature": 0.5
-    }
-
+    
     try:
-        resp = requests.post(
-            "https://api.x.ai/v1/chat/completions",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {XAI_API_KEY}"
-            },
-            json=payload,
-            timeout=60
+        # Get the AI service (defaults to 'xai' if AI_SERVICE env var not set)
+        ai_service = get_ai_service()
+        
+        # Generate comment using the modular AI service
+        reply = ai_service.generate_comment(
+            post_description=post_description,
+            comment_to_reply_to=comment_to_reply_to,
+            commenting_tone=tone
         )
-        if resp.status_code != 200:
-            return jsonify({"error": "x.ai error", "details": resp.text}), 502
-        out = resp.json()
-        reply = out.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-        if not reply:
-            reply = "Appreciate your perspective—can you expand a bit more?"
+        
         return jsonify({"reply": reply})
+        
     except Exception as e:
+        # Log the error for debugging
+        app.logger.error(f"Comment generation failed: {str(e)}")
         return jsonify({"error": "request failed", "details": str(e)}), 500
 
 if __name__ == "__main__":
