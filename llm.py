@@ -55,7 +55,6 @@ class AIService(ABC):
             "\n## HANDLING PROBLEMATIC COMMENTS:\n",
             "- If a comment contains mild negativity or frustration: redirect to constructive discussion ",
             "- If a comment contains borderline content: do not engage with the problematic aspect; pivot to the legitimate topic if one exists ",
-            "- If a comment is overtly hateful or dangerous: do NOT reply at all—output exactly: '[NO_REPLY - FLAGGED FOR REVIEW]' ",
             "- Never 'play devil's advocate' for hateful positions ",
             "- Never use 'both sides' framing that legitimizes hate ",
             
